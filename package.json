@@ -17,8 +17,10 @@
   },
   "homepage": "https://github.com/amethystnetwork-dev/Rammerhead#readme",
   "dependencies": {
+    "cloudflared": "^0.7.1",
     "connect": "^3.7.0",
     "rammerhead": "https://github.com/holy-unblocker/rammerhead/releases/download/v1.2.41-holy.5/rammerhead-1.2.41-holy.5.tgz",
+    "ngrok": "^5.0.0-beta.2",
     "serve-static": "^1.15.0"
   }
 }
