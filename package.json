@@ -1,26 +1,24 @@
 {
-  "name": "rammerhead",
-  "version": "1.0.0",
-  "description": "Rammerhead easy deployment version.",
+  "name": "rammerhead-ngroks",
+  "version": "1.1.0",
+  "description": "Rammerhead easy deployment version with Safari polyfills and official ngrok SDK.",
   "type": "module",
   "scripts": {
+    "postinstall": "node src/build-rammerhead.js",
     "start": "node src/index.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/amethystnetwork-dev/Rammerhead.git"
+    "url": "git+https://github.com"
   },
-  "author": "binary-person and Amethyst Network contributors",
+  "author": "Nicholas Kyprianou, binary-person, and contributors",
   "license": "GPL-3.0-or-later",
-  "bugs": {
-    "url": "https://github.com/amethystnetwork-dev/Rammerhead/issues"
-  },
-  "homepage": "https://github.com/amethystnetwork-dev/Rammerhead#readme",
   "dependencies": {
-    "cloudflared": "^0.7.1",
-    "connect": "^3.7.0",
-    "rammerhead": "https://github.com/holy-unblocker/rammerhead/releases/download/v1.2.41-holy.5/rammerhead-1.2.41-holy.5.tgz",
-    "ngrok": "^5.0.0-beta.2",
-    "serve-static": "^1.15.0"
+    "@ngrok/ngrok": "^1.7.0",
+    "async-exit-hook": "^2.0.1",
+    "dotenv": "^16.4.7",
+    "dotenv-flow": "^3.2.0",
+    "rammerhead": "github:binary-person/rammerhead",
+    "serve-static": "^1.16.2"
   }
 }

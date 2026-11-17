@@ -2,6 +2,24 @@
 import StrShuffler from './lib/StrShuffler.js';
 import Api from './lib/api.js';
 
+function reportConsoleEvent(level, message) {
+    var list = document.getElementById('console-events');
+    var empty = document.getElementById('console-empty');
+    if (!list || !empty) return;
+
+    var item = document.createElement('li');
+    var time = document.createElement('time');
+    time.className = 'console-event-time';
+    time.textContent = new Date().toLocaleTimeString();
+    item.dataset.level = level;
+    item.appendChild(time);
+    item.appendChild(document.createTextNode(String(message).slice(0, 500)));
+    list.prepend(item);
+
+    while (list.children.length > 20) list.lastElementChild.remove();
+    empty.hidden = list.children.length > 0;
+}
+
 // 2. POLYFILL RUNS DIRECTLY AFTER IMPORTS
 // 
 (function() {
@@ -39,19 +57,122 @@ function setError(err) {
     var element = document.getElementById('error-text');
     if (err) {
         element.style.display = 'block';
-        element.textContent = 'An error occurred: ' + err;
+        var message = err.message || String(err);
+        element.textContent = 'An error occurred: ' + message;
+        reportConsoleEvent('error', message);
     } else {
         element.style.display = 'none';
         element.textContent = '';
     }
 }
 
-window.addEventListener('error', setError);
+window.addEventListener('error', function (event) {
+    var target = event.target;
+    var message = event.message || (target && (target.src || target.href)
+        ? 'Failed to load ' + (target.src || target.href)
+        : 'An uncaught browser error occurred');
+    reportConsoleEvent('error', message);
+}, true);
+
+window.addEventListener('unhandledrejection', function (event) {
+    var reason = event.reason;
+    reportConsoleEvent('error', reason && reason.message ? reason.message : String(reason));
+});
 
 (function () {
     const api = new Api();
     var localStorageKey = 'rammerhead_sessionids';
     var localStorageKeyDefault = 'rammerhead_default_sessionid';
+    var sessionConsoleChannel = null;
+
+    function updateConsoleSnapshot() {
+        var sessionId = document.getElementById('session-id').value.trim();
+        document.getElementById('console-session-status').textContent = sessionId || 'No session selected';
+        document.getElementById('console-tab-status').textContent = document.title + ' — ' + location.pathname;
+        document.getElementById('console-network-status').textContent = navigator.onLine ? 'Online' : 'Offline';
+    }
+
+    function watchSessionDiagnostics(sessionId) {
+        if (sessionConsoleChannel) {
+            sessionConsoleChannel.close();
+            sessionConsoleChannel = null;
+        }
+        if (!sessionId || !('BroadcastChannel' in window)) return;
+
+        sessionConsoleChannel = new BroadcastChannel('rammerhead-console:' + sessionId);
+        sessionConsoleChannel.addEventListener('message', function (event) {
+            var data = event.data;
+            if (!data || typeof data.message !== 'string') return;
+            var source = data.title || data.url || 'Proxy tab';
+            if (data.tabId) source += ' [' + data.tabId + ']';
+            reportConsoleEvent(data.type === 'error' ? 'error' : 'info', source + ': ' + data.message);
+        });
+    }
+
+    async function refreshConsoleStatus() {
+        updateConsoleSnapshot();
+        document.getElementById('console-server-status').textContent = 'Checking...';
+        document.getElementById('console-toggle').dataset.state = 'checking';
+        try {
+            await api.needpassword();
+            document.getElementById('console-server-status').textContent = 'Connected';
+            document.getElementById('console-toggle').dataset.state = 'online';
+        } catch (err) {
+            document.getElementById('console-server-status').textContent = 'Unavailable';
+            document.getElementById('console-toggle').dataset.state = 'offline';
+            reportConsoleEvent('error', 'Could not reach the proxy server: ' + (err.message || err));
+        }
+    }
+
+    window.addEventListener('online', function () {
+        document.getElementById('console-network-status').textContent = 'Online';
+        reportConsoleEvent('info', 'Browser network is online');
+    });
+
+    window.addEventListener('offline', function () {
+        document.getElementById('console-network-status').textContent = 'Offline';
+        reportConsoleEvent('error', 'Browser network is offline');
+    });
+
+    var consoleToggle = document.getElementById('console-toggle');
+    var consolePanel = document.getElementById('console-panel');
+
+    function closeConsolePanel() {
+        if (consolePanel.open) consolePanel.close();
+        consoleToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    consoleToggle.addEventListener('click', function () {
+        if (consolePanel.open) {
+            closeConsolePanel();
+            return;
+        }
+        consolePanel.showModal();
+        this.setAttribute('aria-expanded', 'true');
+        refreshConsoleStatus();
+    });
+
+    consolePanel.addEventListener('close', function () {
+        consoleToggle.setAttribute('aria-expanded', String(consolePanel.open));
+    });
+
+    consolePanel.addEventListener('cancel', function () {
+        consoleToggle.setAttribute('aria-expanded', 'false');
+    });
+
+    consolePanel.addEventListener('click', function (event) {
+        if (event.target === consolePanel) closeConsolePanel();
+    });
+
+    document.getElementById('console-minimize').addEventListener('click', function () {
+        closeConsolePanel();
+    });
+
+    document.getElementById('console-refresh').addEventListener('click', refreshConsoleStatus);
+    document.getElementById('console-clear').addEventListener('click', function () {
+        document.getElementById('console-events').replaceChildren();
+        document.getElementById('console-empty').hidden = false;
+    });
 
     var sessionIdsStore = {
         get() {
@@ -143,6 +264,8 @@ window.addEventListener('error', setError);
         document.getElementById('session-id').value = session.id || '';
         document.getElementById('session-httpproxy').value = session.httpproxy || '';
         document.getElementById('session-shuffling').checked = typeof session.enableShuffling === 'boolean' ? session.enableShuffling : true;
+        watchSessionDiagnostics(session.id);
+        updateConsoleSnapshot();
     }
 
     function loadSessions() {
@@ -213,6 +336,7 @@ window.addEventListener('error', setError);
 
     window.addEventListener('load', function () {
         loadSessions();
+        refreshConsoleStatus();
         var showingAdvancedOptions = false;
 
         document.getElementById('session-advanced-toggle').onclick = function () {
@@ -225,6 +349,8 @@ window.addEventListener('error', setError);
                 addSession(id);
                 document.getElementById('session-id').value = id;
                 document.getElementById('session-httpproxy').value = '';
+                watchSessionDiagnostics(id);
+                updateConsoleSnapshot();
             });
         });
 
@@ -243,6 +369,13 @@ window.addEventListener('error', setError);
                 url = 'http://' + url;
             }
 
+            const openInNewTab = document.getElementById('session-open-new-tab').checked;
+            const launchTab = openInNewTab ? window.open('about:blank', '_blank') : null;
+            if (openInNewTab && !launchTab) {
+                return setError('Your browser blocked the new tab. Allow pop-ups for this site and try again.');
+            }
+            if (launchTab) launchTab.opener = null;
+
             try {
                 // Ensure the ID is clean and stripped of accidental whitespace
                 const cleanId = id.trim();
@@ -256,11 +389,12 @@ window.addEventListener('error', setError);
                     const shuffler = new StrShuffler(shuffleDict);
                     
                     const shuffledUrl = shuffler.shuffle(url);
-                    window.location.href = '/' + cleanId + '/' + shuffledUrl;
+                    (launchTab || window).location.href = '/' + cleanId + '/' + shuffledUrl;
                 } else {
-                    window.location.href = '/' + cleanId + '/' + url;
+                    (launchTab || window).location.href = '/' + cleanId + '/' + url;
                 }
             } catch (err) {
+                if (launchTab) launchTab.close();
                 setError(err.message || err);
             }
         }

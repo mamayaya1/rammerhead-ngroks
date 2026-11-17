@@ -1,62 +1,166 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <!-- Automatically upgrades all HTTP resource calls to HTTPS before they fail -->
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#171b20">
+    <meta name="description" content="Rammerhead browser session console">
+    <title>Rammerhead | Session Console</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="style.css">
     <script src="script.js" type="module"></script>
-
-    <title>Rammerhead</title>
 </head>
 <body>
-    <div class="container mb-5">
-  <p class="mb-0 fw-bold">browser</p>
-        <p class="mb-3 fw-bold text-danger" id="error-text" style="display: none">Error: some text</p>
-        <div class="input-group mb-2" id="password-wrapper" style="display: none">
-            <div class="input-group-prepend">
-                <span class="input-group-text">Enter password</span>
+    <div class="page-grid" aria-hidden="true"></div>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Rammerhead home">
+            <span class="brand-mark" aria-hidden="true">R</span>
+            <span class="brand-copy">
+                <strong>RAMMERHEAD</strong>
+                <span>SESSION CONSOLE</span>
+            </span>
+        </a>
+        <button class="connection-status" id="console-toggle" type="button"
+            aria-controls="console-panel" aria-expanded="false" data-state="checking">
+            <span class="status-light" aria-hidden="true"></span>
+            <span>PROXY CONSOLE</span>
+        </button>
+        <dialog class="console-panel" id="console-panel" aria-labelledby="console-title">
+            <div class="console-panel-heading">
+                <div>
+                    <p class="eyebrow">LIVE DIAGNOSTICS</p>
+                    <h2 id="console-title">Current tab status</h2>
+                </div>
+                <div class="console-panel-actions">
+                    <button class="console-action" id="console-refresh" type="button">Refresh</button>
+                    <button class="console-action" id="console-minimize" type="button">Minimize</button>
+                </div>
             </div>
-            <input type="password" class="form-control" id="session-password"
-                placeholder="Password is given by host of this site.">
-        </div>
-        <div class="input-group mb-2">
-            <span class="input-group-text">Enter URL</span>
-            <input type="text" class="form-control" id="session-url" placeholder="https://www.google.com/">
-            <button class="btn btn-success" type="button" id="session-go">Go!</button>
-        </div>
-        <div class="input-group mb-4">
-            <span class="input-group-text">Session ID</span>
-            <input readonly type="text" class="form-control disable-text" id="session-id"
-                placeholder="click on 'Create new session ID' or 'Fill in existing session ID' from below">
-            <button class="btn btn-secondary" type="button" id="session-create-btn">Create new session ID</button>
-        </div>
-        <button class="btn btn-outline-secondary" id="session-advanced-toggle">Show advanced options</button>
-        <div class="mt-2 mb-4" id="session-advanced-container" style="display: none">
-            <div class="form-check mb-1">
-                <input class="form-check-input" type="checkbox" value="" id="session-shuffling" checked>
-                <label class="form-check-label" for="session-shuffling">Enable URL Shuffling</label>
+            <dl class="console-status-list">
+                <div><dt>Proxy server</dt><dd id="console-server-status">Checking...</dd></div>
+                <div><dt>Browser network</dt><dd id="console-network-status">Checking...</dd></div>
+                <div><dt>Active session</dt><dd id="console-session-status">None</dd></div>
+                <div><dt>This tab</dt><dd id="console-tab-status">Console</dd></div>
+            </dl>
+            <div class="console-events-heading">
+                <h3>Recent errors and activity</h3>
+                <button class="console-action" id="console-clear" type="button">Clear</button>
             </div>
-            <div class="input-group mb-3">
-                <span class="input-group-text">HTTP Proxy</span>
-                <input type="text" class="form-control" id="session-httpproxy"
-                    placeholder="http://username:password@proxyipaddress:proxyport">
-            </div>
-        </div>
-    </div>
-    <div class="row justify-content-center m-0">
-        <table class="table w-75 table-striped table-bordered">
-            <thead>
-                <tr>
-                    <th>Session ID</th>
-                    <th>Created on</th>
-                </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
-    </div>
-</body>
+            <p class="console-empty" id="console-empty">No errors or activity reported.</p>
+            <ol class="console-events" id="console-events" aria-live="polite"></ol>
+        </dialog>
+    </header>
 
+    <main class="page-shell">
+        <section class="intro" aria-labelledby="page-title">
+            <p class="eyebrow"><span>01</span> CONNECTION DECK</p>
+            <h1 id="page-title">Ready for your <span>next session?</span></h1>
+            <p class="intro-copy">Choose a destination, load a saved session, and jump straight in.</p>
+        </section>
+
+        <section class="connect-panel" aria-labelledby="connect-title">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">QUICK CONNECT</p>
+                    <h2 id="connect-title">Set your destination</h2>
+                </div>
+                <span class="panel-index" aria-hidden="true">RH / 01</span>
+            </div>
+
+            <p id="error-text" class="error-message" role="alert" aria-live="polite" style="display: none">An error occurred: some text</p>
+
+            <div class="field password-field" id="password-wrapper" style="display: none">
+                <label for="session-password">ACCESS PASSWORD</label>
+                <input class="form-control" type="password" id="session-password"
+                    placeholder="Enter the password provided by the host" autocomplete="current-password">
+            </div>
+
+            <div class="field destination-field">
+                <label for="session-url">DESTINATION URL</label>
+                <div class="destination-control">
+                    <input class="form-control" type="url" id="session-url"
+                        placeholder="https://example.com" autocomplete="url" spellcheck="false">
+                    <button class="btn btn-primary" type="button" id="session-go">
+                        <span>Launch session</span>
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M4 10h11M10 5l5 5-5 5"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="field-hint">Enter a full URL or a domain name.</p>
+                <label class="launch-option" for="session-open-new-tab">
+                    <input type="checkbox" id="session-open-new-tab" checked>
+                    <span>
+                        <strong>Open destination in a new tab</strong>
+                        <span>Keep this console open to launch more tabs and view their diagnostics.</span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="field session-field">
+                <label for="session-id">SESSION ID</label>
+                <div class="session-control">
+                    <input class="form-control" type="text" id="session-id" readonly
+                        placeholder="Create a new session or select one below" spellcheck="false">
+                    <button class="btn btn-secondary" type="button" id="session-create-btn">
+                        <svg viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M10 4v12M4 10h12"></path>
+                        </svg>
+                        <span>New session</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="advanced-area">
+                <button class="advanced-toggle" type="button" id="session-advanced-toggle"
+                    aria-controls="session-advanced-container">
+                    <span class="toggle-caret" aria-hidden="true"></span>
+                    Advanced settings
+                </button>
+                <div class="advanced-panel" id="session-advanced-container" style="display: none">
+                    <label class="setting-row" for="session-shuffling">
+                        <input class="form-check-input" type="checkbox" id="session-shuffling" checked>
+                        <span class="setting-copy">
+                            <strong>URL shuffling</strong>
+                            <span>Vary the proxy path for this session.</span>
+                        </span>
+                    </label>
+                    <div class="field proxy-field">
+                        <label for="session-httpproxy">UPSTREAM HTTP PROXY <span>OPTIONAL</span></label>
+                        <input class="form-control" type="text" id="session-httpproxy"
+                            placeholder="http://user:pass@host:port" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="sessions-panel" aria-labelledby="sessions-title">
+            <div class="sessions-heading">
+                <div>
+                    <p class="eyebrow">YOUR LOADOUT</p>
+                    <h2 id="sessions-title">Saved sessions</h2>
+                </div>
+                <span class="sessions-note">Stored in this browser</span>
+            </div>
+            <div class="table-wrap">
+                <table class="session-table" aria-label="Saved browser sessions">
+                    <thead>
+                        <tr>
+                            <th scope="col">Session ID</th>
+                            <th scope="col">Created</th>
+                            <th scope="col">Load</th>
+                            <th scope="col">Remove</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="page-footer">
+        <span>RAMMERHEAD <span class="footer-divider">/</span> SESSION CONSOLE</span>
+        <span>Keep your session IDs safe.</span>
+    </footer>
+</body>
 </html>
